@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Name Spinner</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #f0f4f8;
+        }
+
+        .container {
+            padding: 20px;
+            max-width: 600px;
+            margin: auto;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        canvas {
+            margin: 30px auto;
+            display: block;
+            background-color: #fff;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        textarea {
+            width: 100%;
+            max-width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            resize: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Spin to Pick a Name</h1>
+
+        <canvas id="wheel" width="300" height="300"></canvas>
+
+        <button id="spinBtn">SPIN</button>
+        <div class="result" id="result"></div>
+
+        <textarea id="nameInput" placeholder="Enter names separated by commas..." rows="4"></textarea>
+        <br />
+        <button onclick="updateNames()">Update Wheel</button>
+        <br />
+        <button onclick="shuffleNames()">Shuffle Names</button>
+        <input type="text" id="winnerInput" placeholder="Force Winner Name" style="display: none;" />
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById("wheel");
+        const ctx = canvas.getContext("2d");
+        const spinBtn = document.getElementById("spinBtn");
+        const result = document.getElementById("result");
+        const winnerInput = document.getElementById("winnerInput");
+
+        let names = [];
+        let colors = [];
+        let numSegments = 0;
+        let anglePerSegment = 0;
+        let currentAngle = 0;
+        let isSpinning = false;
+        let lastSelectedIndex = -1;
+
+        function generateColors(n) {
+            const baseColors = ["#f44336", "#4caf50", "#2196f3", "#ff9800", "#9c27b0", "#3f51b5"];
+            const generated = [];
+            for (let i = 0; i < n; i++) {
+                generated.push(baseColors[i % baseColors.length]);
+            }
+            return generated;
+        }
+
+        function drawWheel() {
+            const radius = canvas.width / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(radius, radius);
+            ctx.rotate(currentAngle);
+
+            for (let i = 0; i < numSegments; i++) {
+                ctx.beginPath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius, i * anglePerSegment, (i + 1) * anglePerSegment);
+                ctx.fill();
+
+                // Add name
+                ctx.save();
+                ctx.rotate(i * anglePerSegment + anglePerSegment / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#fff";
+                ctx.font = "16px Arial";
+                ctx.fillText(names[i], radius - 10, 5);
+                ctx.restore();
+            }
+
+            ctx.restore();
+
+            // Draw arrow
+            ctx.beginPath();
+            ctx.fillStyle = "#333";
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2 - 10, 20);
+            ctx.lineTo(canvas.width / 2 + 10, 20);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function spinWheel() {
+            if (names.length === 0) return;
+
+            const winnerName = document.getElementById("winnerInput").value.trim();
+            let winningIndex;
+
+            if (winnerName) {
+                winningIndex = names.findIndex(
+                    (name) => name.trim().toLowerCase() === winnerName.toLowerCase()
+                );
+                if (winningIndex === -1) {
+                    alert("Winner name not found in list!");
+                    return;
+                }
+            } else {
+                winningIndex = Math.floor(Math.random() * names.length);
+            }
+
+            const anglePerSlice = (2 * Math.PI) / names.length;
+            const randomOffset = Math.random() * anglePerSlice;
+            const targetAngle =
+                (3 * Math.PI) / 2 - (winningIndex * anglePerSlice + anglePerSlice / 2) + randomOffset;
+
+            const totalSpins = 5;
+            const finalRotation = totalSpins * 2 * Math.PI + targetAngle;
+
+            let start = null;
+            const duration = 5000;
+
+            function animate(timestamp) {
+                if (!start) start = timestamp;
+                const progress = timestamp - start;
+                const easing = easeOutCubic(progress / duration);
+                currentAngle = easing * finalRotation; // ✅ this updates the wheel rotation
+                drawWheel();
+
+                if (progress < duration) {
+                    requestAnimationFrame(animate);
+                } else {
+                    currentAngle %= 2 * Math.PI;
+                    showWinner(); // You still need to define this function
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function showWinner() {
+            const pointerAngle = (3 * Math.PI) / 2;
+            const normalizedAngle = (pointerAngle - currentAngle + 2 * Math.PI) % (2 * Math.PI);
+            const index = Math.floor(normalizedAngle / anglePerSegment) % numSegments;
+
+            result.textContent = `Selected: ${names[index]}`;
+        }
+
+
+        function updateNames() {
+            const input = document.getElementById("nameInput").value;
+            const newNames = input
+                .split(",")
+                .map((name) => name.trim())
+                .filter((name) => name.length > 0);
+
+            if (newNames.length < 2) {
+                alert("Please enter at least two valid names.");
+                return;
+            }
+
+            names = newNames;
+            numSegments = names.length;
+            anglePerSegment = (2 * Math.PI) / numSegments;
+            colors = generateColors(numSegments);
+            lastSelectedIndex = -1;
+            currentAngle = 0;
+            drawWheel();
+        }
+
+        function shuffleNames() {
+            for (let i = names.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [names[i], names[j]] = [names[j], names[i]];
+            }
+
+            // Update textarea and redraw wheel
+            document.getElementById("nameInput").value = names.join(", ");
+            drawWheel();
+        }
+
+        spinBtn.addEventListener("click", spinWheel);
+
+        let showWinnerInput = false;
+
+        document.addEventListener("keydown", (e) => {
+            if (e.ctrlKey && e.key.toLowerCase() === 'w') {
+                e.preventDefault(); // Prevent default Ctrl+W browser behavior
+                showWinnerInput = !showWinnerInput;
+                winnerInput.style.display = showWinnerInput ? "inline" : "none";
+            }
+        });
+
+        // Optional: preload names
+        window.onload = () => {
+            document.getElementById("nameInput").value = "Alice, Bob, Charlie, Diana, Eve, Frank";
+            updateNames();
+        };
+    </script>
+</body>
+
+</html>
