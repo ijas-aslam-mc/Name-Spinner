@@ -161,13 +161,18 @@
                 winningIndex = Math.floor(Math.random() * names.length);
             }
 
+            // Calculate the angle where the winner should land (pointing straight up)
             const anglePerSlice = (2 * Math.PI) / names.length;
-            const randomOffset = Math.random() * anglePerSlice;
-            const targetAngle =
-                (3 * Math.PI) / 2 - (winningIndex * anglePerSlice + anglePerSlice / 2) + randomOffset;
+            // The target angle is the angle that would place the winner at the top (3*PI/2)
+            // We need to rotate the wheel so that this segment's center is at 3*PI/2
+            const targetAngle = (3 * Math.PI / 2) - (winningIndex * anglePerSlice + anglePerSlice / 2);
 
+            // Add some random offset to make it look more natural (within the segment)
+            const randomOffset = (Math.random() * anglePerSlice * 0.8) - (anglePerSlice * 0.4);
+
+            // Calculate the final rotation (multiple spins plus the target angle)
             const totalSpins = 5;
-            const finalRotation = totalSpins * 2 * Math.PI + targetAngle;
+            const finalRotation = totalSpins * 2 * Math.PI + targetAngle + randomOffset;
 
             let start = null;
             const duration = 5000;
@@ -176,30 +181,33 @@
                 if (!start) start = timestamp;
                 const progress = timestamp - start;
                 const easing = easeOutCubic(progress / duration);
-                currentAngle = easing * finalRotation; // ✅ this updates the wheel rotation
+                currentAngle = easing * finalRotation;
                 drawWheel();
 
                 if (progress < duration) {
                     requestAnimationFrame(animate);
                 } else {
-                    currentAngle %= 2 * Math.PI;
-                    showWinner(); // You still need to define this function
+                    currentAngle = finalRotation % (2 * Math.PI);
+                    showWinner();
                 }
             }
 
             requestAnimationFrame(animate);
         }
 
-        function easeOutCubic(t) {
-            return 1 - Math.pow(1 - t, 3);
-        }
-
         function showWinner() {
-            const pointerAngle = (3 * Math.PI) / 2;
-            const normalizedAngle = (pointerAngle - currentAngle + 2 * Math.PI) % (2 * Math.PI);
-            const index = Math.floor(normalizedAngle / anglePerSegment) % numSegments;
+            // The pointer is at 270 degrees (3*PI/2 radians)
+            // We need to find which segment is at this angle
+            const pointerAngle = (3 * Math.PI / 2);
+            // Calculate the angle of the segment that's at the pointer
+            const segmentAngle = (pointerAngle - currentAngle + 2 * Math.PI) % (2 * Math.PI);
+            const index = Math.floor(segmentAngle / anglePerSegment) % numSegments;
 
             result.textContent = `Selected: ${names[index]}`;
+        }
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
         }
 
 
